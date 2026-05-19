@@ -28,28 +28,11 @@ Successfully neutralized the high-severity privilege vector by engineering a sea
 
 1. **Isolation Baseline:** Isolated the target service role and mapped live API activity via AWS CloudTrail to verify true application resource requirements.
 2. **Policy Striping:** Severed the blanket `AmazonSESFullAccess` managed attachment to immediately shrink the lateral movement capability of the identity.
-3. **Least-Privilege Enforcement:** Authored and deployed a surgical, customer-managed IAM JSON policy restricting the service strictly to the exact programmatic APIs required for core functionality.
+3. **Least-Privilege Enforcement:** Authored and deployed a surgical, customer-managed IAM JSON policy that explicitly restricts the service role. The configuration strips out all global administrative permissions and limits execution strictly to the exact programmatic APIs required for mail operations (`ses:SendEmail` and `ses:SendRawEmail`), securely binding actions directly to authorized system calls.
 
-### Secure Remediation Policy Applied:
-```json
-{
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Sid": "EnforceLeastPrivilegeEmailTransmission",
-            "Effect": "Allow",
-            "Action": [
-                "ses:SendEmail",
-                "ses:SendRawEmail"
-            ],
-            "Resource": "*"
-        }
-    ]
-}
+---
 
-📊 Phase 4: Business Impact & Governance Deliverables
-Brand Protection: Completely insulated the organization's core domain reputation, removing the liabilities of IP/domain blocklisting and unauthorized infrastructure spend.
-
-Compliance Alignment: Directly satisfies PCI-DSS v4.0 Requirement 7 (Restricting Access to System Components and Data) and SOC 2 Type II Identity Governance mandates.
-
-Zero Operational Friction: Executed the entire vulnerability remediation pipeline with absolute zero downtime or service interruption to the live customer application.
+## 📊 Phase 4: Business Impact & Governance Deliverables
+* **Brand Protection:** Completely insulated the organization's core domain reputation, removing the liabilities of IP/domain blocklisting and unauthorized infrastructure spend.
+* **Compliance Alignment:** Directly satisfies **PCI-DSS v4.0 Requirement 7** (Restricting Access to System Components and Data) and **SOC 2 Type II Identity Governance** mandates.
+* **Zero Operational Friction:** Executed the entire vulnerability remediation pipeline with absolute zero downtime or service interruption to the live customer application.
