@@ -8,7 +8,7 @@ This repository documents a comprehensive identity governance assessment and tar
 ## 🔍 Phase 1: Automated Identity Assessment & Scoping
 Leveraged the open-source IAM security analysis framework `cloudsplaining` inside an isolated AWS CloudShell environment to parse account-wide authorization details, map complex trust relationships, and identify structural policy flaws.
 
-```bash
+
 # Export infrastructure authorization details to a JSON data package
 aws iam get-account-authorization-details > iam_dump.json
 
