@@ -1,61 +1,55 @@
-# Automated FinTech DevSecOps Compliance Pipeline
-🛡️ **Continuous Compliance & Zero-Trust Infrastructure-as-Code (IaC) Governance**
+# AWS IAM Privilege Escalation Assessment, Threat Modeling & Remediation
 
-## Executive Summary & Business Value
-In highly regulated financial technology environments (PCI-DSS, SOC2, GLBA), manual security reviews create deployment friction, scale inefficiencies, and elevate the risk of catastrophic data exposure. 
-
-This project engineers a zero-trust, automated CI/CD security gatekeeper that subjects Terraform Infrastructure-as-Code (IaC) templates to automated Static Application Security Testing (SAST) prior to state deployment. By programmatically shifting security left, this architecture guarantees 100% compliance with corporate guardrails, enforces automated remediation loops, minimizes the corporate blast radius, and provides an immutable audit trail for compliance officers—all without interrupting velocity.
+## 📌 Project Architectural Overview
+This repository documents a comprehensive identity governance assessment and targeted remediation lifecycle conducted within an enterprise AWS environment. By combining automated programmatic analysis with manual verification, this project identifies systemic over-privilege risks, maps potential internal/external privilege escalation vectors, and implements zero-downtime, least-privilege customer-managed policies to securely isolate critical infrastructure blast radii.
 
 ---
 
-## Core Architecture Components
-* **Source Configuration Management:** AWS CodeCommit serving as the single source of truth for declarative infrastructure topologies.
-* **Orchestration Engine:** AWS CodePipeline managing the lifecycle stages from ingestion to compliance verification gates.
-* **Managed Execution Environment:** AWS CodeBuild spinning up ephemeral, isolated Docker runtimes to execute deep security scans.
-* **Static Application Security Testing (SAST) Framework:** Checkov engine parsing abstract syntax trees (AST) to evaluate Terraform configurations against hundreds of compliance policies.
+## 🔍 Phase 1: Automated Identity Assessment & Scoping
+Utilized an open-source IAM security analysis framework within an isolated AWS CloudShell environment to parse account-wide authorization details. The engine programmatically mapped complex trust relationships, evaluated credential definitions against known privilege escalation signatures, and flagged structural policy defects across the entire identity footprint.
+
+### 🚨 Critical Finding: Resource Exposure via Managed Policy Abuse (High Severity)
+* **Vulnerable Identity:** `LambdaSendEmailRole` (Service Role).
+* **Defect Configuration:** Enforced an un-scoped, blanket AWS-Managed Policy (`AmazonSESFullAccess`) across a dedicated microservice context.
+* **Exploitation / Threat Vector:** The configuration granted unrestricted domain-level administrative rights. If an adversary achieved remote code execution (RCE) via the application runtime, they could instantly hijack the corporate domain, modify DNS/DKIM verified sender identities, or weaponize the company's official cloud infrastructure to execute massive financial phishing or data-harvesting operations.
 
 ---
 
-## Policy Enforcement Matrix & Guardrails
-
-The pipeline natively analyzes infrastructure declarations against enterprise financial guardrails. The compliance engine is configured to isolate and block critical vulnerabilities, including but not limited to:
-
-| Policy ID | Threat Vector | Risk Mitigation Strategy | Enforced State |
-| :--- | :--- | :--- | :--- |
-| **CKV_AWS_145** | Data-at-Rest Exposure | Unauthorized access blocks via cleartext storage tiers | Enforced High-Grade KMS Customer Managed Keys (CMK) |
-| **CKV_AWS_18** | Lack of Audit Trail | Deficiency in forensic readiness and compromise tracing | Mandatory S3 Access Logging enabled to dedicated audit bucket |
-| **CKV_AWS_144** | Cross-Region Resiliency | Multi-region data redundancy to survive geographic outages | Enforced Cross-Region Replication (CRR) topologies |
-| **CKV2_AWS_61** | Compliance Bloat | Infinite retention of non-essential log data | Enforced S3 Lifecycle Expiration & Tiering policies |
+## 🛠️ Phase 2: Manual Verification & Blast Radius Assessment
+Cross-referenced the automated report outputs directly within the AWS IAM Management Console to map the active blast radius. Verified the underlying live configuration states to confirm non-repudiation:
+* Validated that the over-privileged role was actively bound to a production Lambda execution context.
+* Checked for conflicting Permission Boundaries or Session Policies that might naturally suppress the identity's scope (none were present).
+* Proved the vulnerability was fully exploitable via localized credential-assumption testing.
 
 ---
 
-## Pipeline Execution & Remediation Mechanics
+## 🔒 Phase 3: Defensive Remediation (Zero-Trust Restructuring)
+Successfully neutralized the high-severity privilege vector by engineering a seamless, zero-downtime migration path away from broad AWS-managed buckets to tightly scoped, customer-managed inline definitions:
 
-The engineering workflow utilizes an automated fail-fast architecture designed to keep non-compliant resources out of AWS environments.
+1. **Isolation Baseline:** Isolated the target service role and mapped live API activity via AWS CloudTrail to verify true application resource requirements.
+2. **Policy Striping:** Severed the blanket `AmazonSESFullAccess` managed attachment to immediately shrink the lateral movement capability of the identity.
+3. **Least-Privilege Enforcement:** Authored and deployed a surgical, customer-managed IAM JSON policy restricting the service strictly to the exact programmatic APIs required for core functionality.
 
-### Phase 1: The Insecure Commit (Compliance Violation)
-When a deployment file defines an unencrypted storage layer or exposes public permissions, the pipeline triggers:
-1. **Source Code Ingestion:** CodePipeline aggregates the package.
-2. **SAST Execution:** CodeBuild instantiates the runtime environment, installs dependency utilities, and runs the policy evaluation matrix:
-   ```bash
-   checkov -d . --framework terraform
-   Execution Failure: The scanner catches the structural policy failure, returns a non-zero exit code (status 1), safely terminates the build phase, and blocks downstream infrastructure provisioning.
+### Secure Remediation Policy Applied:
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "EnforceLeastPrivilegeEmailTransmission",
+            "Effect": "Allow",
+            "Action": [
+                "ses:SendEmail",
+                "ses:SendRawEmail"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
 
-Phase 2: Architectural Remediation & Promotion
+📊 Phase 4: Business Impact & Governance Deliverables
+Brand Protection: Completely insulated the organization's core domain reputation, removing the liabilities of IP/domain blocklisting and unauthorized infrastructure spend.
 
-To clear the compliance block, infrastructure declarations are refactored to conform to secure baselines:
+Compliance Alignment: Directly satisfies PCI-DSS v4.0 Requirement 7 (Restricting Access to System Components and Data) and SOC 2 Type II Identity Governance mandates.
 
-Enforcing Explicit Policies: Restructuring declarations to explicitly block public ACL access layers on storage endpoints.
-
-Cryptographic Binding: Programmatically attaching AWS Key Management Service (aws_kms_key) references directly to persistence layers.
-
-Vulnerability Logging: Implementing fallback soft-failing handling protocols (--soft-fail) during continuous staging cycles to capture comprehensive vulnerability reports for risk-registry logging without interrupting continuous pipeline availability.
-
-Enterprise Production Enhancements (Roadmap)
-To evolve this framework toward a global FinTech production scale, the following operational enhancements are slated for integration:
-
-Secret-Scanning Gating: Integrating TruffleHog/GitGuardian layers into CodeBuild to dynamically catch hardcoded database credentials, IAM API tokens, or TLS private keys before pipeline parsing.
-
-OIDC Cross-Account Deployments: Leveraging OpenID Connect IAM roles to enable the pipeline to securely assume scoped, temporary credentials for deployment into multi-tenant AWS Landing Zones (Development, Staging, Production).
-
-Automated Slack/PagerDuty Alerts: Wiring AWS SNS (Simple Notification Service) and Lambda hooks to parse CodeBuild JSON logs and route rich alert cards instantly to Security Operations (SecOps) teams upon compliance failures.
+Zero Operational Friction: Executed the entire vulnerability remediation pipeline with absolute zero downtime or service interruption to the live customer application.
