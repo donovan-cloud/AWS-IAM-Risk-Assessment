@@ -1,38 +1,53 @@
-# AWS IAM Privilege Escalation Assessment, Threat Modeling & Remediation
+# AWS IAM Privilege Escalation Assessment & Targeted Remediation
 
-## 📌 Project Architectural Overview
-This repository documents a comprehensive identity governance assessment and targeted remediation lifecycle conducted within an enterprise AWS environment. By combining automated programmatic analysis with manual verification, this project identifies systemic over-privilege risks, maps potential internal/external privilege escalation vectors, and implements zero-downtime, least-privilege customer-managed policies to securely isolate critical infrastructure blast radii.
+[![Provider](https://img.shields.io/badge/Provider-AWS-orange.svg)](https://aws.amazon.com/)
+[![Service](https://img.shields.io/badge/Service-AWS_IAM-red.svg)](https://aws.amazon.com/iam/)
+[![Category](https://img.shields.io/badge/Security-Identity_Governance-blue.svg)](https://aws.amazon.com/security/)
+[![Compliance](https://img.shields.io/badge/Compliance-PCI--DSS_/_SOC_2-green.svg)](https://aws.amazon.com/security/)
+
+## 📋 Project Overview
+This repository details the end-to-end identity assessment, threat modeling, and targeted remediation lifecycle conducted within an enterprise AWS ecosystem. 
+
+By analyzing identity trust relationships, this project isolates over-privileged AWS-Managed Policies, identifies potential lateral movement vectors, and applies zero-downtime, customer-managed least-privilege configurations to secure critical messaging infrastructure boundaries.
 
 ---
 
-## 🔍 Phase 1: Automated Identity Assessment & Scoping
-Utilized an open-source IAM security analysis framework within an isolated AWS CloudShell environment to parse account-wide authorization details. The engine programmatically mapped complex trust relationships, evaluated credential definitions against known privilege escalation signatures, and flagged structural policy defects across the entire identity footprint.
+## 🔍 Vulnerability Assessment & Threat Modeling
 
-### 🚨 Critical Finding: Resource Exposure via Managed Policy Abuse (High Severity)
-* **Vulnerable Identity:** `LambdaSendEmailRole` (Service Role).
+During an infrastructure-wide scoping assessment, a critical architectural defect was isolated and validated inside the Identity Management console:
+
+* **Vulnerable Identity:** `LambdaSendEmailRole` (Service Execution Role).
 * **Defect Configuration:** Enforced an un-scoped, blanket AWS-Managed Policy (`AmazonSESFullAccess`) across a dedicated microservice context.
-* **Exploitation / Threat Vector:** The configuration granted unrestricted domain-level administrative rights. If an adversary achieved remote code execution (RCE) via the application runtime, they could instantly hijack the corporate domain, modify DNS/DKIM verified sender identities, or weaponize the company's official cloud infrastructure to execute massive financial phishing or data-harvesting operations.
+* **Exploitation Vector:** The default AWS policy granted unrestricted, domain-level administrative rights. If an attacker achieved Remote Code Execution (RCE) via the application runtime, they could instantly hijack the corporate email domain, modify DNS/DKIM verified sender identities, or weaponize official infrastructure to launch massive phishing or data-exfiltration campaigns.
 
 ---
 
-## 🛠️ Phase 2: Manual Verification & Blast Radius Assessment
-Cross-referenced the automated report outputs directly within the AWS IAM Management Console to map the active blast radius. Verified the underlying live configuration states to confirm non-repudiation:
-* Validated that the over-privileged role was actively bound to a production Lambda execution context.
-* Checked for conflicting Permission Boundaries or Session Policies that might naturally suppress the identity's scope (none were present).
-* Proved the vulnerability was fully exploitable via localized credential-assumption testing.
+## 🛠️ Least-Privilege Remediation Path
+
+To neutralize this privilege escalation risk without causing operational downtime, the broad AWS-managed attachment was systematically replaced with a highly localized, customer-managed structure:
+
+1. **Activity Mapping:** Tracked live service API calls via AWS CloudTrail to define the exact baseline resources required for normal application runtime.
+2. **Policy Striping:** Severed the wide-open `AmazonSESFullAccess` attachment to instantly shrink the identity's lateral attack surface.
+3. **Surgical Binding:** Authored and deployed a custom, customer-managed JSON policy. This configuration strips out all global infrastructure modification rights and locks execution down strictly to the specific endpoints required for transactional mail operations.
 
 ---
 
-## 🔒 Phase 3: Defensive Remediation (Zero-Trust Restructuring)
-Successfully neutralized the high-severity privilege vector by engineering a seamless, zero-downtime migration path away from broad AWS-managed buckets to tightly scoped, customer-managed inline definitions:
+## 💻 Customer-Managed Least-Privilege Policy (`policy.json`)
 
-1. **Isolation Baseline:** Isolated the target service role and mapped live API activity via AWS CloudTrail to verify true application resource requirements.
-2. **Policy Striping:** Severed the blanket `AmazonSESFullAccess` managed attachment to immediately shrink the lateral movement capability of the identity.
-3. **Least-Privilege Enforcement:** Authored and deployed a surgical, customer-managed IAM JSON policy that explicitly restricts the service role. The configuration strips out all global administrative permissions and limits execution strictly to the exact programmatic APIs required for mail operations (`ses:SendEmail` and `ses:SendRawEmail`), securely binding actions directly to authorized system calls.
+This surgical definition explicitly restricts the application role to append-only email transmission APIs, securely binding execution parameters directly to the authorized corporate domain resource:
 
----
-
-## 📊 Phase 4: Business Impact & Governance Deliverables
-* **Brand Protection:** Completely insulated the organization's core domain reputation, removing the liabilities of IP/domain blocklisting and unauthorized infrastructure spend.
-* **Compliance Alignment:** Directly satisfies **PCI-DSS v4.0 Requirement 7** (Restricting Access to System Components and Data) and **SOC 2 Type II Identity Governance** mandates.
-* **Zero Operational Friction:** Executed the entire vulnerability remediation pipeline with absolute zero downtime or service interruption to the live customer application.
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RestrictToSurgicalEmailActionsOnly",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail",
+        "ses:SendRawEmail"
+      ],
+      "Resource": "arn:aws:ses:us-east-1:123456789012:identity/yourdomain.com"
+    }
+  ]
+}
